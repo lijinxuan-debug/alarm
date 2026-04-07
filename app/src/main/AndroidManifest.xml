@@ -22,7 +22,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Alarmjinxuan">
         <activity
-            android:name=".LauncherActivity"
+            android:name=".view.launcher.LauncherActivity"
             android:exported="true"
             android:theme="@style/Theme.Alarmjinxuan">
             <intent-filter>
@@ -39,7 +39,7 @@
             android:directBootAware="true"
             android:exported="false"
             android:launchMode="singleInstance"
-            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
             android:turnScreenOn="true" />
         <activity
             android:name=".view.vibration.VibrationActivity"

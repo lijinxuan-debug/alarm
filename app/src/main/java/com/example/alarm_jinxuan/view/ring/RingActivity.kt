@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -13,6 +14,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.alarm_jinxuan.databinding.ActivityRingBinding
 import com.example.alarm_jinxuan.model.AlarmEntity
+import com.example.alarm_jinxuan.repository.AlarmRepository
 import com.example.alarm_jinxuan.service.AlarmService
 import com.example.alarm_jinxuan.utils.AlarmManagerUtils
 import com.example.alarm_jinxuan.utils.MediaUtils
@@ -51,14 +53,24 @@ class RingActivity : AppCompatActivity() {
      * 冲破锁屏
      */
     private fun setupFlagsForLockScreen() {
-        // 1. 点亮屏幕并冲破锁屏
+        // 检查屏幕是否处于熄灭状态
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        val isScreenOff = !powerManager.isInteractive
+
+        // 1. 冲破锁屏，只有在屏幕熄灭时才点亮屏幕
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
-            setTurnScreenOn(true)
+            if (isScreenOff) {
+                setTurnScreenOn(true)
+            }
         } else {
             @Suppress("DEPRECATION")
-            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+            val flags = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            window.addFlags(if (isScreenOff) {
+                flags or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            } else {
+                flags
+            })
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -116,6 +128,8 @@ class RingActivity : AppCompatActivity() {
                 if (seekBar != null && seekBar.progress > 80) {
                     // 关闭铃声的同时也要关闭振动
                     this@RingActivity.stopService(intent)
+                    // 更新数据库中的闹钟状态
+                    AlarmRepository.dismissAlarm(alarm, this@RingActivity)
                     // 同时销毁页面
                     finish()
                 } else {

@@ -14,7 +14,8 @@ class SideIndexBar @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val letters = listOf("#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z")
+    // 默认显示所有字母
+    private var letters = listOf("#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z")
 
     private val paint = Paint().apply {
         color = 0xFF1D1D1F.toInt()
@@ -27,6 +28,20 @@ class SideIndexBar @JvmOverloads constructor(
     private var letterHeight = 0f
     private var letterRect = Rect()
     var onLetterSelectedListener: ((String) -> Unit)? = null
+
+    /**
+     * 更新字母列表，只显示有数据的字母
+     */
+    fun updateLetters(newLetters: List<String>) {
+        letters = newLetters.sortedWith { a, b ->
+            when {
+                a == "#" && b != "#" -> -1
+                a != "#" && b == "#" -> 1
+                else -> a.compareTo(b)
+            }
+        }
+        invalidate()
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -57,10 +72,18 @@ class SideIndexBar @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        letterHeight = h.toFloat() / letters.size
+        // 防止除零错误
+        letterHeight = if (letters.isNotEmpty()) {
+            h.toFloat() / letters.size
+        } else {
+            0f
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // 如果没有字母，不处理触摸事件
+        if (letters.isEmpty()) return false
+
         when (event.action) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 val index = (event.y / letterHeight).toInt()

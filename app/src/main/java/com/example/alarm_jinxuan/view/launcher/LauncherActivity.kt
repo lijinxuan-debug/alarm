@@ -1,14 +1,13 @@
-package com.example.alarm_jinxuan
+package com.example.alarm_jinxuan.view.launcher
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
-import com.hjq.permissions.XXPermissions
-import com.hjq.permissions.Permission
+import com.example.alarm_jinxuan.MainActivity
+import com.example.alarm_jinxuan.view.permission.PermissionSettingActivity
 
 /**
  * 启动页：根据权限状态决定进入权限设置界面还是主界面
@@ -23,7 +22,7 @@ class LauncherActivity : AppCompatActivity() {
          * 标记权限设置页面已显示
          */
         fun markPermissionShown(context: Context) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             prefs.edit().putBoolean(KEY_PERMISSION_SHOWN, true).apply()
         }
     }
@@ -45,7 +44,7 @@ class LauncherActivity : AppCompatActivity() {
         val intent: Intent
         if (!firstLaunch) {
             // 首次启动，进入权限设置页面（不显示返回按钮）
-            intent = Intent(this, com.example.alarm_jinxuan.view.permission.PermissionSettingActivity::class.java)
+            intent = Intent(this, PermissionSettingActivity::class.java)
             intent.putExtra("show_back_button", false)
 
             // 标记已启动过
@@ -57,17 +56,5 @@ class LauncherActivity : AppCompatActivity() {
 
         startActivity(intent)
         finish()
-    }
-
-    private fun checkNotificationPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            XXPermissions.isGranted(this, Permission.POST_NOTIFICATIONS)
-        } else {
-            true
-        }
-    }
-
-    private fun checkIgnoreBatteryOptimizations(): Boolean {
-        return XXPermissions.isGranted(this, Permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
     }
 }

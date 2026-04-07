@@ -207,12 +207,11 @@ class PermissionSettingActivity : AppCompatActivity() {
     }
 
     /**
-     * 申请自启动权限（使用荣耀/华为专用方法）
+     * 申请自启动权限
      */
     private fun requestAutoStartPermission() {
-        // 使用荣耀/华为专用的电源管理页面跳转方法
         try {
-            PermissionUtils.openHonorPowerDetail(this)
+            PermissionUtils.openAutoStartSetting(this)
             ToastUtils.showLong(this, "请在跳转页面中开启自启动权限")
         } catch (_: Exception) {
             // 降级方案：跳转到应用详情页

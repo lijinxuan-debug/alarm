@@ -76,7 +76,7 @@ class AddCityActivity : AppCompatActivity() {
 
         // 从映射中获取索引
         val targetIndex = letterToIndexMap[letter]
-        if (targetIndex != null && targetIndex >= 0) {
+        if (targetIndex != null && targetIndex >= 0 && targetIndex < currentCities.size) {
             binding.recyclerView.scrollToPosition(targetIndex)
         }
     }
@@ -88,9 +88,15 @@ class AddCityActivity : AppCompatActivity() {
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 viewModel.searchCities(s.toString())
+                // 搜索时立即更新字母索引的可见性
+                if (s.toString().isNotEmpty()) {
+                    binding.sideIndexBar.visibility = View.GONE
+                }
             }
 
-            override fun afterTextChanged(s: Editable?) {}
+            override fun afterTextChanged(s: Editable?) {
+                // 清空时，字母索引会在observeViewModel中重新显示
+            }
         })
 
         // 设置返回按钮
@@ -115,8 +121,18 @@ class AddCityActivity : AppCompatActivity() {
             currentCities = uiState.availableCities
             adapter.updateCities(currentCities)
 
+            // 判断是否在搜索状态
+            val isSearching = binding.searchEdit.text.toString().isNotEmpty()
+
             // 计算拼音首字母到索引的映射
-            buildLetterToIndexMap()
+            if (isSearching) {
+                // 搜索时隐藏字母索引
+                binding.sideIndexBar.visibility = View.GONE
+            } else {
+                // 非搜索时显示字母索引
+                binding.sideIndexBar.visibility = View.VISIBLE
+                buildLetterToIndexMap()
+            }
         }
     }
 
@@ -147,65 +163,60 @@ class AddCityActivity : AppCompatActivity() {
                 letterToIndexMap[letter] = foundIndex
             }
         }
+
+        // 显示所有字母
+        binding.sideIndexBar.updateLetters(pinyinLetters)
     }
 
     /**
      * 获取中文名的拼音首字母
-     * 使用字符列表匹配来确定拼音首字母
+     * 使用Collator来比较字符和参考字符
      */
     private fun getPinyinFirstLetter(chineseName: String): String {
         if (chineseName.isEmpty()) return "#"
 
         val firstChar = chineseName[0]
-        return when {
-            // A
-            firstChar in listOf('阿', '爱', '安', '按', '暗', '昂', '傲', '奥', '澳', '懊') -> "A"
-            // B
-            firstChar in listOf('八', '巴', '扒', '吧', '拔', '把', '坝', '爸', '霸', '白', '百', '柏', '摆', '拜', '班', '般', '板', '版', '办', '半', '伴', '邦', '帮', '榜', '傍', '棒', '包', '胞', '剥', '薄', '雹', '保', '堡', '饱', '宝', '抱', '报', '豹', '暴', '爆', '卑', '杯', '悲', '碑', '北', '贝', '背', '被', '倍', '辈', '备', '惫', '奔', '本', '笨', '崩', '绷', '甭', '泵', '蹦', '逼', '鼻', '比', '彼', '笔', '币', '必', '毕', '闭', '避', '边', '编', '鞭', '扁', '便', '变', '遍', '辨', '辩', '彪', '标', '表', '别', '宾', '彬', '斌', '滨', '兵', '冰', '柄', '饼', '并', '病', '拨', '波', '玻', '勃', '博', '搏', '薄', '伯', '驳', '捕', '哺', '补', '不', '布', '步', '部') -> "B"
-            // C
-            firstChar in '擦'..'错' -> "C"
-            // D
-            firstChar in '搭'..'躲' -> "D"
-            // E
-            firstChar in listOf('蛾', '额', '恩', '二', '儿', '耳', '而', '迩', '洱', '饵', '珥', '铒', '鸸', '贰', '咄', '夺', '铎', '朵', '哚', '垛', '躲', '堕', '惰', '跺') -> "E"
-            // F
-            firstChar in '发'..'否' -> "F"
-            // G
-            firstChar in '噶'..'过' -> "G"
-            // H
-            firstChar in '哈'..'祸' -> "H"
-            // J
-            firstChar in '击'..'开' -> "J"
-            // K
-            firstChar in '喀'..'扩' -> "K"
-            // L
-            firstChar in '拉'..'洛' -> "L"
-            // M
-            firstChar in '妈'..'没' -> "M"
-            // N
-            firstChar in '拿'..'诺' -> "N"
-            // O
-            firstChar in listOf('哦', '噢', '欧', '讴', '殴', '偶', '藕', '沤', '瓯') -> "O"
-            // P
-            firstChar in listOf('怕', '帕', '爬', '拍', '排', '牌', '派', '攀', '盘', '判', '叛', '盼', '庞', '旁', '胖', '抛', '炮', '跑', '泡', '胚', '培', '赔', '佩', '配', '喷', '盆', '抨', '烹', '朋', '捧', '碰', '批', '披', '霹', '皮', '疲', '脾', '匹', '痞', '屁', '譬', '偏', '篇', '片', '骗', '漂', '飘', '瓢', '票', '撇', '瞥', '拼', '频', '贫', '品', '聘', '乒', '坪', '苹', '萍', '平', '评', '凭', '瓶', '萍', '坡', '泼', '颇', '婆', '迫', '破', '魄', '剖', '扑', '铺') -> "P"
-            // Q
-            firstChar in listOf('七', '期', '其', '奇', '齐', '祈', '岐', '崎', '脐', '旗', '棋', '骐', '骑', '崎', '淇', '萁', '祈', '颀', '启', '起', '岂', '乞', '企', '气', '汽', '弃', '迄', '泣', '契', '砌', '器', '气') -> "Q"
-            // R
-            firstChar in listOf('然', '燃', '染', '壤', '攘', '让', '饶', '扰', '绕', '惹', '热', '人', '仁', '忍', '韧', '认', '任', '刃', '扔', '仍', '日', '戎', '茸', '蓉', '荣', '融', '冗', '柔', '揉', '肉', '如', '儒', '乳', '汝', '入', '褥', '软', '锐', '瑞', '润', '弱') -> "R"
-            // S
-            firstChar in '撒'..'锁' -> "S"
-            // T
-            firstChar in '他'..'妥' -> "T"
-            // W
-            firstChar in '挖'..'沃' -> "W"
-            // X
-            firstChar in listOf('西', '希', '昔', '析', '稀', '息', '牺', '悉', '惜', '溪', '烯', '硒', '晰', '熙', '嬉', '习', '席', '袭', '媳', '洗', '喜', '戏', '系', '细', '隙', '瞎', '虾', '匣', '霞', '辖', '暇', '峡', '狭', '下', '厦', '夏', '吓', '掀', '锨', '先', '仙', '纤', '掀', '鲜', '闲', '弦', '贤', '咸', '衔', '嫌', '显', '险', '现', '献', '县', '腺', '馅', '羡', '宪', '陷', '限', '线', '相', '厢', '镶', '香', '箱', '襄', '湘', '乡', '翔', '祥', '详', '想', '响', '享', '项', '巷', '橡', '像', '向', '象', '萧', '硝', '霄', '削', '哮', '嚣', '销', '消', '宵', '淆', '小', '孝', '校', '肖', '啸', '笑', '效', '楔', '些', '歇', '蝎', '鞋', '协', '挟', '携', '邪', '斜', '胁', '谐', '写', '械', '卸', '蟹', '懈', '泄', '泻', '谢', '屑', '薪', '芯', '锌', '欣', '辛', '新', '忻', '心', '信', '衅', '星', '腥', '猩', '兴', "型", '刑', '形', '邢', '行', '省', '醒', '杏', '姓', '性', '凶', '兄', '胸', '匈', '雄', '熊', '休', '修', '羞', '朽', '嗅', '锈', '秀', '袖', '绣', '墟', '戌', '需', '虚', '须', '徐', '许', '蓄', '酗', '叙', '旭', '序', '畜', '恤', '絮', '婿', '绪', '续', '轩', '喧', '宣', '悬', '旋', '玄', '选', "癣", '眩', '绚', '靴', '薛', '学', '穴', '雪', '血') -> "X"
-            // Y
-            firstChar in '压'..'韵' -> "Y"
-            // Z
-            firstChar in '匝'..'座' -> "Z"
-            else -> "#"
+
+        // 使用Collator来比较字符，因为中文字符的Unicode排序和拼音排序不一致
+        val collator = java.text.Collator.getInstance(java.util.Locale.CHINA)
+
+        // 定义每个拼音字母的参考字符（这个字符是该字母的开头）
+        val letterBoundaries = listOf(
+            Pair("A", '阿'),
+            Pair("B", '八'),
+            Pair("C", '擦'),
+            Pair("D", '搭'),
+            Pair("E", '蛾'),
+            Pair("F", '发'),
+            Pair("G", '噶'),
+            Pair("H", '哈'),
+            Pair("J", '击'),
+            Pair("K", '喀'),
+            Pair("L", '拉'),
+            Pair("M", '妈'),
+            Pair("N", '拿'),
+            Pair("O", '哦'),
+            Pair("P", '怕'),
+            Pair("Q", '七'),
+            Pair("R", '然'),
+            Pair("S", '撒'),
+            Pair("T", '他'),
+            Pair("W", '挖'),
+            Pair("X", '西'),
+            Pair("Y", '压'),
+            Pair("Z", '匝'),
+            Pair("#", '座') // 用'座'作为结尾参考字符，因为'座'是拼音z开头中最大的常见字
+        )
+
+        // 从前往后比较，找到第一个比firstChar大的参考字符
+        for (i in letterBoundaries.indices) {
+            if (collator.compare(firstChar.toString(), letterBoundaries[i].second.toString()) < 0) {
+                return letterBoundaries[i].first
+            }
         }
+
+        // 如果比所有参考字符都大，返回"#"
+        return "#"
     }
 
     override fun onResume() {

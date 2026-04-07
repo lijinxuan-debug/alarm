@@ -14,7 +14,7 @@
 
     <item
         android:id="@+id/stop_watch"
-        android:icon="@drawable/ic_stop_watch"
+        android:icon="@drawable/ic_alarm_stop_watch"
         android:title="@string/stop_watch"/>
 
     <item

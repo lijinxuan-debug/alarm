@@ -23,4 +23,5 @@
     <color name="text_sub">#757575</color>
     <color name="status_ok">#4CAF50</color>
     <color name="status_pending">#FF9800</color>
+    <color name="ic_launcher_background">#783c46</color>
 </resources>

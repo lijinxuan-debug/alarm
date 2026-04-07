@@ -19,7 +19,7 @@ class WorldClockAdapter(
 
     private var clocks = listOf<WorldClockEntity>()
 
-    inner class WorldClockViewHolder(private val binding: ItemWorldClockBinding) :
+    inner class WorldClockViewHolder(val binding: ItemWorldClockBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         init {
@@ -34,11 +34,12 @@ class WorldClockAdapter(
         }
 
         fun bind(clock: WorldClockEntity) {
-            // 更新时间
+            // 使用当前时间实时计算，避免使用存储的旧时间戳
             try {
                 val zoneId = ZoneId.of(clock.zoneId)
+                val now = System.currentTimeMillis()
                 val cityTime = ZonedDateTime.ofInstant(
-                    java.time.Instant.ofEpochMilli(clock.currentTimeMills),
+                    java.time.Instant.ofEpochMilli(now),
                     zoneId
                 )
 
@@ -62,6 +63,14 @@ class WorldClockAdapter(
                 val dayStatusText = getDayStatusText(clock.dayStatus, clock.timeOffset)
                 binding.cityInfo.text = dayStatusText
 
+                // 设置删除按钮点击事件
+                binding.deleteButton.setOnClickListener {
+                    val position = adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        onLongPress(clocks[position])
+                    }
+                }
+
             } catch (e: Exception) {
                 binding.timeText.text = "12:00"
                 binding.timePeriod.text = "上午"
@@ -71,9 +80,42 @@ class WorldClockAdapter(
         }
 
         /**
+         * 只更新时间显示，避免整个 item 重新绑定导致的闪烁
+         */
+        fun updateTimeDisplay(clock: WorldClockEntity) {
+            try {
+                val zoneId = ZoneId.of(clock.zoneId)
+                val now = System.currentTimeMillis()
+                val cityTime = ZonedDateTime.ofInstant(
+                    java.time.Instant.ofEpochMilli(now),
+                    zoneId
+                )
+
+                // 12小时制
+                val hour24 = cityTime.hour
+                val hour12 = when {
+                    hour24 == 0 -> 12
+                    hour24 <= 12 -> hour24
+                    else -> hour24 - 12
+                }
+                binding.timeText.text = String.format("%d:%02d", hour12, cityTime.minute)
+
+                // 设置时段
+                val timePeriodText = getTimePeriodText(cityTime.hour)
+                binding.timePeriod.text = timePeriodText
+
+                // 设置天数状态
+                val dayStatusText = getDayStatusText(clock.dayStatus, clock.timeOffset)
+                binding.cityInfo.text = dayStatusText
+            } catch (e: Exception) {
+                // 静默处理错误
+            }
+        }
+
+        /**
          * 根据小时数获取时段文字（12小时制）
          */
-        private fun getTimePeriodText(hour: Int): String {
+        fun getTimePeriodText(hour: Int): String {
             return when (hour) {
                 in 5..8 -> "早上"
                 in 9..11 -> "上午"
@@ -92,7 +134,7 @@ class WorldClockAdapter(
          * @param timeOffset 时区偏移，如 "+08:00" 或 "-05:00"
          * @return 格式化后的文字，如 "今天早6小时" 或 "明天晚8小时30分钟"
          */
-        private fun getDayStatusText(dayStatus: Int, timeOffset: String): String {
+        fun getDayStatusText(dayStatus: Int, timeOffset: String): String {
             // 获取天数文字
             val dayText = when (dayStatus) {
                 -1 -> "昨天"
@@ -157,6 +199,16 @@ class WorldClockAdapter(
         holder.bind(clocks[position])
     }
 
+    override fun onBindViewHolder(holder: WorldClockViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isEmpty()) {
+            // 如果没有 payload，进行完整绑定
+            onBindViewHolder(holder, position)
+        } else {
+            // 如果有 payload，只更新时间显示
+            holder.updateTimeDisplay(clocks[position])
+        }
+    }
+
     override fun getItemCount(): Int = clocks.size
 
     fun updateClocks(newClocks: List<WorldClockEntity>) {
@@ -182,9 +234,26 @@ class WorldClockDiffCallback(
             val oldClock = oldList[oldItemPosition]
             val newClock = newList[newItemPosition]
 
+            // 如果只有时间变化，返回 false 以触发 getChangePayload
+            // 如果其他属性也变了，也返回 false
             return oldClock.cityName == newClock.cityName &&
                     oldClock.timeOffset == newClock.timeOffset &&
-                    oldClock.currentTimeMills == newClock.currentTimeMills &&
-                    oldClock.dayStatus == newClock.dayStatus
+                    oldClock.dayStatus == newClock.dayStatus &&
+                    oldClock.currentTimeMills == newClock.currentTimeMills
+        }
+
+        // 当时间变化时调用此方法，只更新时间显示，不触发整个 item 重新绑定
+        override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any? {
+            val oldClock = oldList[oldItemPosition]
+            val newClock = newList[newItemPosition]
+
+            // 检查是否只有时间变化
+            val onlyTimeChanged = oldClock.cityName == newClock.cityName &&
+                    oldClock.timeOffset == newClock.timeOffset &&
+                    oldClock.dayStatus == newClock.dayStatus &&
+                    oldClock.currentTimeMills != newClock.currentTimeMills
+
+            // 如果只有时间变化，返回一个标识，这样 onBindViewHolder 只更新时间部分
+            return if (onlyTimeChanged) "TIME_UPDATE" else null
         }
     }

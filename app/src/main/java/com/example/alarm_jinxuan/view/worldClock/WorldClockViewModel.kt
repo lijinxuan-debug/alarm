@@ -186,15 +186,15 @@ class WorldClockViewModel(application: Application) : AndroidViewModel(applicati
         return clocks.map { clock ->
             try {
                 val zoneId = ZoneId.of(clock.zoneId)
+
+                // 直接使用当前时间戳转换为目标时区的时间
+                val cityTime = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(now), zoneId)
                 val localTime = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(now), localZoneId)
-                val cityTime = localTime.withZoneSameInstant(zoneId)
 
-                // 计算天数差异
-                val dayStatus = cityTime.dayOfYear - localTime.dayOfYear
-
-                // 格式化时间
-                val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-                val dateFormatter = DateTimeFormatter.ofPattern("M月d日 EEEE")
+                // 计算天数差异 - 修正跨年问题
+                val localDate = localTime.toLocalDate()
+                val cityDate = cityTime.toLocalDate()
+                val dayStatus = java.time.temporal.ChronoUnit.DAYS.between(localDate, cityDate).toInt()
 
                 clock.copy(
                     currentTimeMills = now,

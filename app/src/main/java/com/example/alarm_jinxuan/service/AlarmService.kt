@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Message
+import android.os.PowerManager
 import android.util.Log
 import com.example.alarm_jinxuan.model.AddAlarmClockManager
 import com.example.alarm_jinxuan.model.AlarmEntity
@@ -19,6 +20,7 @@ import com.example.alarm_jinxuan.utils.AlarmManagerUtils
 import com.example.alarm_jinxuan.utils.AlarmNotificationUtils
 import com.example.alarm_jinxuan.utils.MediaUtils
 import com.example.alarm_jinxuan.utils.VibrationUtils
+import com.example.alarm_jinxuan.view.ring.RingActivity
 
 class AlarmService : Service() {
 
@@ -72,6 +74,8 @@ class AlarmService : Service() {
         showNotification(alarm)
         // 开始响铃振动
         startForegroundResource(alarm)
+        // 主动启动 RingActivity 唤醒屏幕
+        startRingActivity(alarm)
 
         handlerSendMeg(alarm)
         Log.e("service执行成功了", alarm.toString())
@@ -90,6 +94,27 @@ class AlarmService : Service() {
 
         // 开始倒计时，如果在指定的响铃时间内没有关闭闹钟需要自动实现稍后提醒功能
         autoDismissHandler.sendMessageDelayed(message, alarm.ringDuration * 60 * 1000L)
+    }
+
+    /**
+     * 主动启动 RingActivity 唤醒屏幕
+     */
+    private fun startRingActivity(alarm: AlarmEntity) {
+        // 屏幕亮度编辑器
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (pm.isInteractive) {
+            return
+        } else {
+            try {
+                val intent = Intent(this, RingActivity::class.java).apply {
+                    putExtra("ALARM_OBJ", alarm)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("AlarmService", "启动 RingActivity 失败: ${e.message}")
+            }
+        }
     }
 
     private fun startForegroundResource(alarm: AlarmEntity) {
@@ -162,7 +187,7 @@ class AlarmService : Service() {
 
             // 获取 NotificationManager 并更新通知
             val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.notify(alarm.id, snoozeBuilder.build())
+            notificationManager.notify(119, snoozeBuilder.build())
 
             Log.d("AlarmService", "已设置稍后提醒: ${alarm.snoozeInterval}分钟后")
         } else {

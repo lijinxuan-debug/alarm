@@ -3,12 +3,17 @@ package com.example.alarm_jinxuan
 import android.app.Application
 import android.app.NotificationManager
 import android.os.Build
+import android.util.Log
+import com.example.alarm_jinxuan.repository.AlarmRepository
 import com.example.alarm_jinxuan.utils.AlarmNotificationUtils
 
 class AlarmApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.e("AlarmApplication", "onCreate执行")
+        // 初始化数据库
+        AlarmRepository.init(this)
         // 应用启动时立即创建所有通知通道
         createAllNotificationChannels()
     }

@@ -9,7 +9,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import androidx.appcompat.app.AlertDialog
+import com.hjq.permissions.Permission
+import com.hjq.permissions.XXPermissions
+import java.util.Locale
 
 object PermissionUtils {
 
@@ -104,35 +108,79 @@ object PermissionUtils {
     }
 
     /**
-     * 精准跳转到荣耀/华为的应用耗电详情页
+     * 精准跳转到各厂商自启动/应用耗电管理详情页
      */
-    fun openHonorPowerDetail(context: Context) {
-        val intent = Intent()
+    fun openAutoStartSetting(context: Context) {
+        val brand = Build.BRAND.lowercase(Locale.getDefault())
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.getDefault())
         val packageName = context.packageName
-
-        // 这里的组件名必须和你 ADB 抓取的一致
-        intent.component = ComponentName(
-            "com.hihonor.systemmanager",
-            "com.hihonor.systemmanager.power.ui.DetailOfSoftConsumptionActivity"
-        )
-
-        // 关键：必须传入包名，系统才知道显示哪个 App 的耗电
-        intent.putExtra("pkg_name", packageName)
-        // 兼容部分旧版本或华为机型可能用的 key
-        intent.putExtra("package_name", packageName)
-
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent()
 
         try {
+            when {
+                // 小米 / 红米
+                brand.contains("xiaomi") || manufacturer.contains("xiaomi") -> {
+                    intent.component = ComponentName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                    )
+                    intent.putExtra("extra_pkgname", packageName)
+                }
+
+                // 荣耀 (独立后的新系统路径)
+                brand.contains("honor") || manufacturer.contains("honor") -> {
+                    intent.component = ComponentName(
+                        "com.hihonor.systemmanager",
+                        "com.hihonor.systemmanager.power.ui.DetailOfSoftConsumptionActivity"
+                    )
+                    intent.putExtra("pkg_name", packageName)
+                }
+
+                // 华为
+                brand.contains("huawei") || manufacturer.contains("huawei") -> {
+                    // 华为路径较多，ProtectActivity 是最常用的自启动/受保护应用路径
+                    intent.component = ComponentName(
+                        "com.huawei.systemmanager",
+                        "com.huawei.systemmanager.optimize.process.ProtectActivity"
+                    )
+                }
+
+                // OPPO
+                brand.contains("oppo") || brand.contains("realme") -> {
+                    intent.component = ComponentName(
+                        "com.coloros.safecenter",
+                        "com.coloros.safecenter.startupapp.StartupAppListActivity"
+                    )
+                }
+
+                // vivo
+                brand.contains("vivo") || brand.contains("iqoo") -> {
+                    intent.component = ComponentName(
+                        "com.vivo.permissionmanager",
+                        "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
+                    )
+                }
+
+                // 默认兜底：跳转到系统应用详情页
+                else -> {
+                    intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                    intent.data = Uri.fromParts("package", packageName, null)
+                }
+            }
+
+            // 统一添加参数和 Flag
+            intent.putExtra("package_name", packageName)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
+
         } catch (e: Exception) {
-            // 如果精准跳转失败（例如被系统拦截），则降级到通用电池页面
+            // 第一层降级：尝试跳转到通用的电池使用情况汇总页
             try {
                 val batteryIntent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
                 batteryIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(batteryIntent)
-            } catch (_: Exception) {
-                // 最后的兜底：跳转到应用详情页
+            } catch (e2: Exception) {
+                // 第二层降级：跳转到最稳妥的应用详情页（XXPermissions 也是这么做的）
                 val detailIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.fromParts("package", packageName, null)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
