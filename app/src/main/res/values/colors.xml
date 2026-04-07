@@ -15,4 +15,12 @@
     <color name="halo">#22000000</color>
     <color name="red">#F44336</color>
     <color name="shallow_light_gray">#E0E0E0</color>
+    <color name="item_bg">#FFFFFF</color>
+    <color name="icon_bg_blue">#E3F2FD</color>
+    <color name="icon_bg_green">#E8F5E9</color>
+    <color name="icon_bg_purple">#F3E5F5</color>
+    <color name="text_main">#212121</color>
+    <color name="text_sub">#757575</color>
+    <color name="status_ok">#4CAF50</color>
+    <color name="status_pending">#FF9800</color>
 </resources>

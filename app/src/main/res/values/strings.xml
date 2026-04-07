@@ -11,6 +11,7 @@
     <string name="china_standard_time">中国标准时间</string>
     <string name="add_city">添加城市</string>
     <string name="search_city">搜索城市</string>
+    <string name="edit_back">返回设置</string>
     <string name="alarm_rings">14 小时 14 分钟后响铃</string>
     <string name="alarm_timer">00:00:00</string>
     <string name="add_alarm">新建闹钟</string>

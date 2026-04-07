@@ -44,6 +44,7 @@ class WorldClockFragment : Fragment() {
         setupComposeView()
         setupRecyclerView()
         setupAddButton()
+        setupSettingsButton()
         observeViewModel()
 
         // 启动时间更新
@@ -57,8 +58,8 @@ class WorldClockFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        adapter = WorldClockAdapter(viewModel) { clockId ->
-            viewModel.removeWorldClock(clockId)
+        adapter = WorldClockAdapter(viewModel) { clock ->
+            viewModel.removeWorldClock(clock.id.toLong())
         }
 
         binding.worldClockRecycler.apply {
@@ -70,6 +71,14 @@ class WorldClockFragment : Fragment() {
     private fun setupAddButton() {
         binding.add.setOnClickListener {
             val intent = Intent(requireContext(), AddCityActivity::class.java)
+            startActivity(intent)
+        }
+    }
+
+    private fun setupSettingsButton() {
+        binding.edit.setOnClickListener {
+            val intent = Intent(requireContext(), com.example.alarm_jinxuan.view.permission.PermissionSettingActivity::class.java)
+            intent.putExtra("show_back_button", true)
             startActivity(intent)
         }
     }

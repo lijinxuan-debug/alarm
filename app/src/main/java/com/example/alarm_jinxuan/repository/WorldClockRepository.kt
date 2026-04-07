@@ -7,6 +7,8 @@ import com.example.alarm_jinxuan.model.WorldClockEntity
 import com.example.alarm_jinxuan.utils.WorldClockUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.Collator
+import java.util.Locale
 
 class WorldClockRepository(context: Context) {
     private val worldClockDao: WorldClockDao = AppDatabase.getDatabase(context).worldClock()
@@ -24,11 +26,13 @@ class WorldClockRepository(context: Context) {
      */
     suspend fun searchWorldClock(keyword: String): List<WorldClockEntity> =
         withContext(Dispatchers.IO) {
-            if (keyword.isEmpty()) {
+            val results = if (keyword.isEmpty()) {
                 getAvailableCities()
             } else {
                 worldClockDao.searchWorldClock(keyword)
             }
+            // 按中文拼音排序
+            results.sortedWith(compareBy(Collator.getInstance(Locale.CHINA)) { it.cityName })
         }
 
     /**
@@ -39,10 +43,10 @@ class WorldClockRepository(context: Context) {
         val selectedClocks = worldClockDao.getAllSelectedWorldClock()
         val selectedIds = selectedClocks.map { it.cityEnglishName }.toSet()
 
-        // 获取所有预置城市
+        // 获取所有预置城市（已按字母排序）
         val allCities = WorldClockUtils.generateAccurate500WorldClocks()
 
-        // 过滤掉已选择的城市
+        // 过滤掉已选择的城市，同时保持字母排序
         allCities.filterNot { it.cityEnglishName in selectedIds }
     }
 
@@ -88,9 +92,18 @@ class WorldClockRepository(context: Context) {
      * 初始化数据库中的城市数据
      */
     suspend fun initializeDatabaseIfEmpty() = withContext(Dispatchers.IO) {
-        val count = worldClockDao.getWorldClockCount()
-        if (count == 0) {
-            // 数据库为空，初始化所有城市数据
+        val allClocks = worldClockDao.getAllWorldClock()
+
+        // 检查是否需要重新初始化（数据库为空 或者 有数据但缺少国家字段）
+        val needsReinit = allClocks.isEmpty() ||
+                allClocks.any { it.countryName.isEmpty() || it.countryPinyin.isEmpty() }
+
+        if (needsReinit) {
+            // 删除旧数据（如果有）
+            if (allClocks.isNotEmpty()) {
+                worldClockDao.deleteAllWorldClock()
+            }
+            // 初始化所有城市数据（已按拼音排序）
             val allCities = WorldClockUtils.generateAccurate500WorldClocks()
             worldClockDao.insertWorldClockBatch(allCities)
         }

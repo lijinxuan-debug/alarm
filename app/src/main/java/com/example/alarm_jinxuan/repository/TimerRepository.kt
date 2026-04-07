@@ -18,22 +18,22 @@ object TimerRepository {
      * 2. 超过1小时：显示 X小时X分钟
      * 3. 超过1分钟：显示 X分钟
      * 4. 低于1分钟：显示 不足1分钟
-     * 5. 归零或负数：显示 时间已到
+     * 5. 归零或负数：显示 计时器超时（仅用于超时通知，不在正常计时中显示）
      */
     fun formatRemainingTime(nanos: Long): String {
-        // 1. 先换算成总秒数，方便计算
+        // 使用纳秒进行判断，避免向下取整导致小于1秒时显示错误
+        if (nanos <= 0) return "计时器超时"
+        if (nanos < 60 * 1_000_000_000L) return "还剩不到 1 分钟"
+
+        // 换算成总秒数，方便计算
         val totalSeconds = nanos / 1_000_000_000L
 
-        // 2. 边界处理
-        if (totalSeconds <= 0) return "计时器超时"
-        if (totalSeconds < 60) return "不足 1 分钟"
-
-        // 3. 计算各个单位
+        // 计算各个单位
         val days = totalSeconds / (24 * 3600)
         val hours = (totalSeconds % (24 * 3600)) / 3600
         val minutes = (totalSeconds % 3600) / 60
 
-        // 4. 根据时间跨度返回不同的格式
+        // 根据时间跨度返回不同的格式
         return when {
             days > 0 -> {
                 // 如果有天数，只显示 天 + 小时

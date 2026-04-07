@@ -9,6 +9,8 @@ data class WorldClockEntity(
     val id: Int = 0,
     val cityName: String, // 中文名称
     val cityEnglishName: String, // 英文名称
+    val countryName: String, // 国家/地区中文名称
+    val countryPinyin: String, // 国家/地区拼音
     val zoneId: String,
     val timeOffset: String, // 时差
     val currentTimeMills: Long, // 时间戳

@@ -6,7 +6,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:paddingTop="40dp"
     android:paddingStart="40dp"
-    android:paddingEnd="40dp"
     tools:context=".view.stopWatch.StopWatchFragment">
 
     <TextView
@@ -20,11 +19,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
+    <ImageView
+        android:id="@+id/edit"
+        android:layout_width="50dp"
+        android:layout_height="45dp"
+        android:src="@drawable/ic_edit_circle"
+        android:contentDescription="更多"
+
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/compose_view"
         android:layout_width="320dp"
         android:layout_height="320dp"
         android:layout_marginTop="20dp"
+        android:layout_marginEnd="40dp"
 
         app:layout_constraintTop_toBottomOf="@id/title"
         app:layout_constraintStart_toStartOf="parent"
@@ -35,6 +45,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
 
+        android:layout_marginEnd="40dp"
         android:text="00:00.00"
         android:textSize="18sp"
         android:textColor="@color/black"
@@ -51,6 +62,7 @@
         android:text="00:00.00"
         android:textSize="12sp"
         android:textColor="@color/black"
+        android:layout_marginEnd="40dp"
 
         android:visibility="invisible"
 
@@ -64,6 +76,7 @@
         android:layout_height="200dp"
 
         android:layout_marginTop="10dp"
+        android:layout_marginEnd="40dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         tools:listitem="@layout/item_quick_note"
 
@@ -84,6 +97,7 @@
         android:src="@drawable/ic_begin"
         android:layout_marginBottom="20dp"
         app:borderWidth="0dp"
+        android:layout_marginEnd="40dp"
 
         android:backgroundTint="@color/white"
         android:background="@color/white"

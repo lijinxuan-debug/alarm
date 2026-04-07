@@ -1,5 +1,6 @@
 package com.example.alarm_jinxuan.view.stopWatch
 
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -84,6 +85,13 @@ class StopWatchFragment : Fragment() {
         binding.laps.apply {
             adapter = lapAdapter
             setHasFixedSize(true)
+        }
+
+        // 设置按钮
+        binding.edit.setOnClickListener {
+            val intent = Intent(requireContext(), com.example.alarm_jinxuan.view.permission.PermissionSettingActivity::class.java)
+            intent.putExtra("show_back_button", true)
+            startActivity(intent)
         }
 
         // 启动秒表

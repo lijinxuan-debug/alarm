@@ -56,14 +56,14 @@ class TimerService : LifecycleService() {
             // 停止响铃和通知，但保持服务运行
             "ACTION_STOP_SERVICE" -> {
                 timerJob?.cancel()
-                // 停止运行状态，防止监听器触发新通知
-                TimerRepository.setRunning(false)
                 // 停止响铃
                 MediaUtils.stop(this)
                 // 移除前台服务状态并取消通知
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 // 清理所有通知
                 notificationManager.cancel(0)
+                // 停止运行状态，防止监听器触发新通知（在取消通知后再设置）
+                TimerRepository.setRunning(false)
             }
         }
 

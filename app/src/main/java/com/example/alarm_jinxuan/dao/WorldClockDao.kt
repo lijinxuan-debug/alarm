@@ -31,12 +31,19 @@ interface WorldClockDao {
     suspend fun getWorldClockById(id: Long): WorldClockEntity?
 
     /**
-     * 模糊搜索世界时钟（按城市名/时区名）
+     * 模糊搜索世界时钟（按城市名/英文名/国家名/国家拼音）
      * @param keyword 搜索关键词（支持部分匹配，无需手动拼接 %）
      * @return 匹配的时钟列表（按 id 升序）
-     * 说明：SQL 中用 %||:keyword||% 实现模糊匹配（兼容 SQLite 语法）
+     * 说明：支持搜索中文城市名、英文名、国家名、国家拼音
      */
-    @Query(" SELECT * FROM WorldClock  WHERE cityName LIKE '%' || :keyword || '%'  ORDER BY id ASC")
+    @Query("""
+        SELECT * FROM WorldClock
+        WHERE cityName LIKE '%' || :keyword || '%'
+           OR cityEnglishName LIKE '%' || :keyword || '%'
+           OR countryName LIKE '%' || :keyword || '%'
+           OR countryPinyin LIKE '%' || :keyword || '%'
+        ORDER BY id ASC
+    """)
     suspend fun searchWorldClock(keyword: String): List<WorldClockEntity>
 
     /**

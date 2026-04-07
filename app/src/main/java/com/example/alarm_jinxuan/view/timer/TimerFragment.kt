@@ -50,6 +50,13 @@ class TimerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // 设置按钮
+        binding.edit.setOnClickListener {
+            val intent = Intent(requireContext(), com.example.alarm_jinxuan.view.permission.PermissionSettingActivity::class.java)
+            intent.putExtra("show_back_button", true)
+            startActivity(intent)
+        }
+
         // 设置超时回调：当 Service 检测到时间到0时，同步 ViewModel 的剩余时间为0
         TimerRepository.onTimeOutCallback = {
             viewModel.syncRemainingToZero()
@@ -176,6 +183,8 @@ class TimerFragment : Fragment() {
                 return@setOnClickListener
             }
             viewModel.reset()
+            // 停止服务和关闭通知
+            createService("ACTION_STOP_SERVICE")
             // 收回动画
             startMergeAnimation()
             // 滚轮数据也全部清0
