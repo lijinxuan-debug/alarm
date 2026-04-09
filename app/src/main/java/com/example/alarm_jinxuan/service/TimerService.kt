@@ -17,7 +17,6 @@ import com.example.alarm_jinxuan.utils.MediaUtils
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.util.Log
 
 class TimerService : LifecycleService() {
     private val channelId = "ALARM_TIMER"
@@ -133,7 +132,7 @@ class TimerService : LifecycleService() {
 
                     // 同时开始响铃（防止重复响铃）
                     if (ring) {
-                        MediaUtils.startRingtonePreview(R.raw.alarm_timer_beep,this@TimerService)
+                        MediaUtils.startRingtonePreview(R.raw.alarm_timer_beep,this@TimerService,null)
                         ring = false
                     }
 

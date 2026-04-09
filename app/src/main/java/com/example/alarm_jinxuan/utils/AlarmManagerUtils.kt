@@ -11,6 +11,7 @@ import android.util.Log
 import com.example.alarm_jinxuan.model.AlarmEntity
 import com.example.alarm_jinxuan.receiver.AlarmReceiver
 import com.example.alarm_jinxuan.repository.AlarmRepository
+import com.example.alarm_jinxuan.service.AlarmService
 import java.util.Calendar
 
 object AlarmManagerUtils {
@@ -128,12 +129,15 @@ object AlarmManagerUtils {
     /**
      * 稍后提醒模式
      */
-    fun snoozeAlarm(context: Context, alarm: AlarmEntity) {
+     fun snoozeAlarm(context: Context, alarm: AlarmEntity) {
         // 先停止振动和铃声
         MediaUtils.stop(context)
         VibrationUtils.stop(context)
+        // 获取小睡模式前的时间戳
+        val oldTriggerTime = alarm.nextTriggerTime
+
         // 这里的稍后提醒没有任何的次数限制，只要用户愿意可以一直稍后提醒
-        alarm.computeSnoozeCount--
+        // alarm.computeSnoozeCount--
 
         val triggerTime = getSnoozeTriggerTime(alarm)
         alarm.nextTriggerTime = triggerTime
@@ -141,7 +145,10 @@ object AlarmManagerUtils {
         AlarmRepository.updateAlarm(alarm)
         Log.e("当前的闹钟数据",alarm.toString())
         // 只需要再设置一个再响间隔的闹铃即可
-        setAlarm(context,alarm,triggerTime)
+        setAlarm(context, alarm, triggerTime)
+
+        // 修改当前闹钟的状态
+        AlarmRepository.updateAllAlarmsByNextTriggerTime(alarm,context,true,oldTriggerTime)
 
         // 设置稍后提醒的闹钟日志
         val dismissPI = AlarmNotificationUtils.getBroadcastIntent(context, alarm, "ACTION_DISMISS", 1000)
@@ -150,6 +157,9 @@ object AlarmManagerUtils {
         // 获取 NotificationManager 并更新通知
         val notificationManager = context.getSystemService(NotificationManager::class.java)
         notificationManager.notify(alarm.id, snoozeBuilder.build())
+
+        // 清除前台响铃通知
+        context.stopService(Intent(context, AlarmService::class.java))
     }
 
     /**

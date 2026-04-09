@@ -1,5 +1,6 @@
 package com.example.alarm_jinxuan.receiver
 
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -28,21 +29,22 @@ class AlarmReceiver : BroadcastReceiver() {
                 // 关闭闹钟停止服务
                 val stopIntent = Intent(context, AlarmService::class.java)
                 context.stopService(stopIntent)
-                // 这里关闭闹钟后，还需要根据闹钟的重复时间来设置下一个alarmManager
-                if (alarm?.repeatText == "不重复") {
-                    AlarmRepository.dismissAlarm(alarm, context)
-                } else {
-                    // 那就说明为重复，需要创建alarmManager设置下一次的闹钟
-                    alarm?.let {
-                        setAlarm(context, alarm)
-                    }
+                // 这里关闭闹钟后，为了防止多个闹钟的并发问题，需要根据响铃日期计算他们的时间戳
+                // 根据当前闹钟获取所有闹钟
+                if (alarm != null) {
+                    AlarmRepository.updateAllAlarmsByNextTriggerTime(alarm,context,false)
+                }
+                // 无论如何都要关闭闹钟通知（主要是为了让那些已经存在重复的闹铃也可以正常的关闭）
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                alarm?.let {
+                    nm.cancel(it.id)
                 }
             }
 
             "ACTION_SNOOZE" -> {
                 // 停止当前闹钟服务
                 context.stopService(Intent(context, AlarmService::class.java))
-                // 这里调用小睡模式
+                // 这里调用稍后提醒模式
                 if (alarm != null) {
                     AlarmManagerUtils.snoozeAlarm(context, alarm)
                 }
@@ -59,17 +61,6 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
             }
         }
-    }
-
-    /**
-     * 关闭闹铃后还要设置下一次的alarmManager
-     */
-    private fun setAlarm(context: Context, alarm: AlarmEntity) {
-        val triggerTime = AlarmManagerUtils.calculateNextTriggerTime(alarm)
-        // 数据库也要更新它的下一次响铃时间
-        AlarmRepository.updateAlarmNextTriggerTime(alarm, triggerTime)
-        // 设置下一次的闹铃
-        AlarmManagerUtils.setAlarm(context, alarm, triggerTime)
     }
 
 }

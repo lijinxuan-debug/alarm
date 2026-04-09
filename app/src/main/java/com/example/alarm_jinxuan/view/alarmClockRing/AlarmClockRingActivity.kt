@@ -32,7 +32,7 @@ class AlarmClockRingActivity : AppCompatActivity() {
             // 播放音乐前也需要振动
             VibrationUtils.vibrate(this, AddAlarmClockManager.currentVibrationPattern)
             // 播放音乐
-            MediaUtils.startRingtonePreview(onItemSelected.resId,this)
+            MediaUtils.startRingtonePreview(onItemSelected.resId,this,null)
 
             binding.rbSelect.isChecked = false
 
@@ -53,7 +53,7 @@ class AlarmClockRingActivity : AppCompatActivity() {
 
             // 这里同理振动
             VibrationUtils.vibrate(this, AddAlarmClockManager.currentVibrationPattern)
-            MediaUtils.startRingtonePreview(R.raw.alarm_morning_light,this)
+            MediaUtils.startRingtonePreview(R.raw.alarm_morning_light,this,null)
 
             AddAlarmClockManager.tempRingtoneId = -1 // 给推荐铃声定一个特殊 ID
             AddAlarmClockManager.tempRingtoneName = "Morning Light"

@@ -28,7 +28,7 @@ interface AlarmDao {
     suspend fun deleteAlarmById(alarmId: Int): Int
 
     // 查询所有闹钟（按时间先后排序）
-    @Query("SELECT * FROM alarms ORDER BY hour24 ASC, minute ASC")
+    @Query("SELECT * FROM alarms ORDER BY hour24 ASC, minute ASC, id ASC")
     fun getAllAlarms(): Flow<List<AlarmEntity>>
 
     // 只查询已开启的闹钟（以下一次响铃时间为主）
@@ -42,4 +42,8 @@ interface AlarmDao {
     // 根据 ID 查询单个闹钟（用于编辑页面回显）
     @Query("SELECT * FROM alarms WHERE id = :alarmId")
     suspend fun getAlarmById(alarmId: Int): AlarmEntity?
+
+    // 根据下一次响铃时间戳查询所有已开启的闹钟（用于处理同一时间点的多个闹钟）
+    @Query("SELECT * FROM alarms WHERE nextTriggerTime = :nextTriggerTime AND isEnabled = true")
+    suspend fun getAlarmsByNextTriggerTime(nextTriggerTime: Long): List<AlarmEntity>
 }

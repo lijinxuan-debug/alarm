@@ -19,6 +19,7 @@ import com.example.alarm_jinxuan.repository.AlarmRepository
 import com.example.alarm_jinxuan.utils.AlarmManagerUtils
 import com.example.alarm_jinxuan.utils.AlarmNotificationUtils
 import com.example.alarm_jinxuan.utils.MediaUtils
+import com.example.alarm_jinxuan.utils.ToastUtils
 import com.example.alarm_jinxuan.utils.VibrationUtils
 import com.example.alarm_jinxuan.view.ring.RingActivity
 
@@ -70,6 +71,14 @@ class AlarmService : Service() {
         }
         currentAlarm = alarm
 
+        // 先判断当前是不是有闹钟在响了（而且必须是不同时间的闹钟）
+        if (MediaUtils.isAlarmPlaying() && alarm.nextTriggerTime != MediaUtils.currentAlarm?.nextTriggerTime) {
+            // 将上一个闹铃设置为小睡模式
+            autoHandleNoResponse(MediaUtils.currentAlarm!!)
+            // 同时利用handler清除当前消息队列任务
+            autoDismissHandler.removeMessages(0)
+        }
+
         // 显示对应通知
         showNotification(alarm)
         // 开始响铃振动
@@ -78,7 +87,6 @@ class AlarmService : Service() {
         startRingActivity(alarm)
 
         handlerSendMeg(alarm)
-        Log.e("service执行成功了", alarm.toString())
 
         return START_STICKY
     }
@@ -91,6 +99,8 @@ class AlarmService : Service() {
         val message = autoDismissHandler.obtainMessage().apply {
             obj = alarm
         }
+        // 先清除之前的队列任务（主要为了解决多个闹钟的并发问题，能够确保最后播放的闹钟按照他的响铃时长来）
+        autoDismissHandler.removeMessages(message.what)
 
         // 开始倒计时，如果在指定的响铃时间内没有关闭闹钟需要自动实现稍后提醒功能
         autoDismissHandler.sendMessageDelayed(message, alarm.ringDuration * 60 * 1000L)
@@ -101,7 +111,7 @@ class AlarmService : Service() {
      */
     private fun startRingActivity(alarm: AlarmEntity) {
         // 屏幕亮度编辑器
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
         if (pm.isInteractive) {
             return
         } else {
@@ -125,7 +135,7 @@ class AlarmService : Service() {
         val resId =
             this.resources.getIdentifier(alarm.ringtoneFileName, "raw", this.packageName)
 
-        MediaUtils.startRingtonePreview(resId, this)
+        MediaUtils.startRingtonePreview(resId, this, alarm)
     }
 
     private fun showNotification(alarm: AlarmEntity) {
@@ -149,9 +159,12 @@ class AlarmService : Service() {
             snoozePI,
             channelId
         )
+        // 需要清除当前闹钟的普通通知（以防万一该闹钟有小睡模式）
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.cancel(alarm.id)
 
-        // 启动前台服务通知
-        startForeground(119, builder.build())
+        // 启动前台服务通知（由于每个service的前台通知实例只能有一个，因此）
+        startForeground(121, builder.build())
     }
 
     /**
@@ -168,6 +181,8 @@ class AlarmService : Service() {
         VibrationUtils.stop(this)
 
         if (alarm.computeSnoozeCount > 0) {
+            // 获取旧的时间戳
+            val oldTriggerTime = alarm.nextTriggerTime
             // 还有重复次数，准备稍后提醒
             alarm.computeSnoozeCount--
 
@@ -179,6 +194,9 @@ class AlarmService : Service() {
             // 设置下次响铃时间
             AlarmManagerUtils.setAlarm(this, alarm, alarm.nextTriggerTime)
 
+            // 同时需要处理小睡状态下其他闹钟没有关闭（时间戳未及时更改）的问题
+            AlarmRepository.updateAllAlarmsByNextTriggerTime(alarm,this,true,oldTriggerTime)
+
             // 更新通知为"稍后提醒"状态
             val dismissPI =
                 AlarmNotificationUtils.getBroadcastIntent(this, alarm, "ACTION_DISMISS", 1000)
@@ -187,9 +205,9 @@ class AlarmService : Service() {
 
             // 获取 NotificationManager 并更新通知
             val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.notify(119, snoozeBuilder.build())
+            notificationManager.notify(alarm.id, snoozeBuilder.build())
 
-            Log.d("AlarmService", "已设置稍后提醒: ${alarm.snoozeInterval}分钟后")
+            ToastUtils.showShort(this,"${alarm.label} 暂停${alarm.snoozeInterval}分钟")
         } else {
             // 重复响铃次数耗尽，关闭闹钟（等待下一次的闹钟响（如果重复的话））
             Log.e("AlarmService", "重复次数耗尽，关闭闹钟")
@@ -198,9 +216,11 @@ class AlarmService : Service() {
             } else {
                 setAlarm(this, alarm)
             }
-            // 停止服务
-            stopSelf()
         }
+        // 清除前台响铃通知
+        stopForeground()
+        // 同时也需要销毁handler的任务队列
+        autoDismissHandler.removeMessages(0)
     }
 
     override fun onDestroy() {
@@ -208,16 +228,9 @@ class AlarmService : Service() {
         // 服务关闭时，务必释放资源
         MediaUtils.stop(this)
         VibrationUtils.stop(this)
+        // 关闭该service的前台服务通知
+        stopForeground()
 
-        // 显式移除前台通知（参数 true 表示移除通知）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            @Suppress("DEPRECATION")
-            stopForeground(true)
-        }
-
-        // 同时销毁handler任务（目前有问题，如果当前有两个闹钟都在响，那么一下子就都清除了。）
         autoDismissHandler.removeMessages(0)
         // 销毁灭屏广播服务
         unregisterReceiver(screenReceiver)
@@ -237,8 +250,21 @@ class AlarmService : Service() {
      * 灭屏后的相关逻辑（其实就是执行稍后提醒模式）
      */
     private fun handleScreenOffDuringAlarm(alarm: AlarmEntity) {
-        // 添加windowFlag的目的是为了
+        // 灭屏则默认执行稍后提醒模式
         AlarmManagerUtils.snoozeAlarm(this, alarm)
+    }
+
+    /**
+     * 清除前台响铃通知
+     */
+    private fun stopForeground() {
+        // 显式移除前台通知（参数 true 表示移除通知）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
     }
 
 }

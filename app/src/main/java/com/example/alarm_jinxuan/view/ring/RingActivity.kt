@@ -4,6 +4,8 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.view.View
 import android.view.WindowInsets
@@ -19,11 +21,25 @@ import com.example.alarm_jinxuan.service.AlarmService
 import com.example.alarm_jinxuan.utils.AlarmManagerUtils
 import com.example.alarm_jinxuan.utils.MediaUtils
 import com.example.alarm_jinxuan.utils.VibrationUtils
+import java.util.Calendar
 
 class RingActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRingBinding
     private lateinit var alarm: AlarmEntity
+
+    // 记录上一次显示的分钟数
+    private var lastDisplayedMinute = -1
+
+    // 用于定时检查分钟变化的 Handler
+    private val minuteCheckHandler = Handler(Looper.getMainLooper())
+    private val minuteCheckRunnable = object : Runnable {
+        override fun run() {
+            checkMinuteChange()
+            // 每30秒检查一次
+            minuteCheckHandler.postDelayed(this, 30000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +63,9 @@ class RingActivity : AppCompatActivity() {
 
         // 设置交互
         setupListeners(alarm)
+
+        // 响铃时间到了则直接销毁页面
+        minuteCheckHandler.postDelayed({ finish() }, (alarm.ringDuration * 60 * 1000).toLong())
     }
 
     /**
@@ -66,11 +85,13 @@ class RingActivity : AppCompatActivity() {
         } else {
             @Suppress("DEPRECATION")
             val flags = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-            window.addFlags(if (isScreenOff) {
-                flags or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            } else {
-                flags
-            })
+            window.addFlags(
+                if (isScreenOff) {
+                    flags or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                } else {
+                    flags
+                }
+            )
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -101,7 +122,29 @@ class RingActivity : AppCompatActivity() {
     }
 
     private fun fillAlarmData() {
-        binding.tvTime.text = "${alarm.hour}:${alarm.minute}"
+        // 记录初始分钟数
+        val calendar = Calendar.getInstance()
+        lastDisplayedMinute = calendar.get(Calendar.MINUTE)
+
+        val minuteStr = String.format("%02d", lastDisplayedMinute)
+        // 先显示闹钟的时间
+        binding.tvTime.text = "${calendar.get(Calendar.HOUR)}:${minuteStr}"
+
+        // 开始检查分钟变化
+        minuteCheckHandler.post(minuteCheckRunnable)
+    }
+
+    private fun checkMinuteChange() {
+        val calendar = Calendar.getInstance()
+        val currentMinute = calendar.get(Calendar.MINUTE)
+
+        // 如果分钟数变了，更新显示
+        if (currentMinute != lastDisplayedMinute) {
+            val hour = calendar.get(Calendar.HOUR)
+            val minute = calendar.get(Calendar.MINUTE)
+            binding.tvTime.text = String.format("%02d:%02d", hour, minute)
+            lastDisplayedMinute = currentMinute
+        }
     }
 
     private fun setupListeners(alarm: AlarmEntity) {
@@ -110,14 +153,21 @@ class RingActivity : AppCompatActivity() {
         binding.btnSnooze.text = "${alarm.snoozeInterval} 分钟后提醒"
 
         binding.btnSnooze.setOnClickListener {
-            Toast.makeText(this, "闹钟将在 ${alarm.snoozeInterval} 分钟后再次响铃", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "闹钟将在 ${alarm.snoozeInterval} 分钟后再次响铃",
+                Toast.LENGTH_SHORT
+            ).show()
             // 先停止闹钟响铃
             this.stopService(intent)
-            // 实现小睡模式
-            AlarmManagerUtils.snoozeAlarm(this,alarm)
+            // 调用提醒模式
+            AlarmManagerUtils.snoozeAlarm(this, alarm)
             // 退出页面
             finish()
         }
+
+        // 设置当前闹钟名称
+        binding.tvAlarmLabel.text = alarm.label
 
         binding.seekbarDismiss.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {}
@@ -128,8 +178,14 @@ class RingActivity : AppCompatActivity() {
                 if (seekBar != null && seekBar.progress > 80) {
                     // 关闭铃声的同时也要关闭振动
                     this@RingActivity.stopService(intent)
+
                     // 更新数据库中的闹钟状态
-                    AlarmRepository.dismissAlarm(alarm, this@RingActivity)
+                    AlarmRepository.updateAllAlarmsByNextTriggerTime(
+                        alarm,
+                        this@RingActivity,
+                        false
+                    )
+
                     // 同时销毁页面
                     finish()
                 } else {
@@ -143,6 +199,10 @@ class RingActivity : AppCompatActivity() {
     // 严谨点，防止Activity意外销毁导致声音一直响
     override fun onDestroy() {
         super.onDestroy()
+
+        // 停止分钟检查
+        minuteCheckHandler.removeCallbacks(minuteCheckRunnable)
+
         MediaUtils.stop(this)
         VibrationUtils.stop(this)
     }

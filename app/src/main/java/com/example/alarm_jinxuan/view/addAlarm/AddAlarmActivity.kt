@@ -67,13 +67,16 @@ class AddAlarmActivity : AppCompatActivity() {
         }
     }
 
-    private val durationData = minutesList.mapIndexed { index, min ->
-        DurationOption(
-            id = index,
-            minute = min,
-            label = "$min 分钟",
-            isSelected = (min == currentRingMinute)
-        )
+    // 获取响铃时长数据列表（每次调用都基于当前的 currentRingMinute 重新生成）
+    private fun getDurationData(): List<DurationOption> {
+        return minutesList.mapIndexed { index, min ->
+            DurationOption(
+                id = index,
+                minute = min,
+                label = "$min 分钟",
+                isSelected = (min == currentRingMinute)  // 动态计算，确保状态准确
+            )
+        }
     }
 
     // 1. 上午/下午 数据
@@ -209,6 +212,9 @@ class AddAlarmActivity : AppCompatActivity() {
         // 响铃时长
         currentRingMinute = alarm.ringDuration
         binding.textDuration.text = "$currentRingMinute 分钟"
+        // 响铃音乐
+        binding.ringToneName.text = alarm.ringtoneName
+
         // 再响间隔
         intervalRingValue = alarm.snoozeInterval
         repeatRingValue = alarm.snoozeCount
@@ -362,7 +368,7 @@ class AddAlarmActivity : AppCompatActivity() {
         }
         dialog.setCanceledOnTouchOutside(false)
 
-        val durationAdapter = DurationAdapter(durationData) { selectedOption ->
+        val durationAdapter = DurationAdapter(getDurationData()) { selectedOption ->
             binding.textDuration.text = selectedOption.label
 
             // 更改当前响铃时长
@@ -541,6 +547,8 @@ class AddAlarmActivity : AppCompatActivity() {
         }
         // 计算下一次响铃的时间戳
         val nextTriggerTime = AlarmManagerUtils.calculateNextTriggerTimeByTime(h24,minute, repeatDataString)
+        // 设置闹钟名称
+        val alarmName = binding.alarmName.text.toString()
         // 整理对象
         val newAlarm = AlarmEntity(
             id = alarmEntity?.id ?: 0,
@@ -567,7 +575,7 @@ class AddAlarmActivity : AppCompatActivity() {
             snoozeCount = repeatRingValue,
             computeSnoozeCount = repeatRingValue,
 
-            label = "闹钟"
+            label = alarmName
         )
         // 检查通知权限（Android 13+）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

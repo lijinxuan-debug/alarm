@@ -35,16 +35,13 @@ object AlarmRepository {
         // 获得下一次闹钟响铃的时间戳
         val nextTriggerTime = AlarmManagerUtils.calculateNextTriggerTime(alarm)
 
-        Log.e("关闭闹钟", "准备写入时间戳: $nextTriggerTime")
-        Log.e("AlarmRepository", "alarmDao是否为null: ${alarmDao == null}")
-
         repositoryScope.launch {
             // 关闭闹钟通知（服务已经在receiver和service里面关闭）
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(alarm.id)
             // 修改数据库
             alarmDao?.updateEnabledStatus(alarm.id,false,nextTriggerTime)
-            Log.e("关闭闹钟", "数据库更新完成")
+            Log.e("关闭闹钟id为", alarm.id.toString())
             // 同时不要忘记去修改闹钟状态
             AlarmManagerUtils.cancelAlarm(context,alarm.id)
         }
@@ -75,5 +72,47 @@ object AlarmRepository {
      */
     suspend fun getAllAlarms(): List<AlarmEntity>? {
         return alarmDao?.getAllEnabledAlarms()
+    }
+
+    /**
+     * 查询该时间戳下已开启的所有闹钟，并对于同一时间戳的闹铃进行修改
+     */
+    fun updateAllAlarmsByNextTriggerTime(alarm: AlarmEntity,context: Context,isSnooze: Boolean,oldTriggerTime: Long?= null) {
+        repositoryScope.launch {
+            var alarmEntities: List<AlarmEntity>?
+            // 获取当前时间戳下所有已经开启的闹铃
+            if (isSnooze) {
+                // 如果是小睡模式，那么将除了该小睡模式的闹钟全部关闭
+                alarmEntities = alarmDao?.getAlarmsByNextTriggerTime(oldTriggerTime ?: alarm.nextTriggerTime)?.filter { it.id != alarm.id }
+            } else {
+                // 直接将该时间戳下的全部闹钟关闭即可
+                alarmEntities = alarmDao?.getAlarmsByNextTriggerTime(oldTriggerTime ?: alarm.nextTriggerTime)
+            }
+
+            // 获取这些闹铃的下一次时间戳，进行比对是否应该关闭闹钟
+            Log.e("全部数据",alarmDao?.getAllEnabledAlarms().toString())
+            alarmEntities?.forEach {
+                if (it.repeatText == "不重复") {
+                    // 不重复的话直接取消即可
+                    dismissAlarm(it, context)
+                } else {
+                    // 那就说明为重复，需要创建alarmManager设置下一次的闹钟
+                    setAlarm(context, it)
+                }
+            }
+        }
+    }
+
+
+
+    /**
+     * 关闭闹铃后还要设置下一次的alarmManager
+     */
+    private fun setAlarm(context: Context, alarm: AlarmEntity) {
+        val triggerTime = AlarmManagerUtils.calculateNextTriggerTime(alarm)
+        // 数据库也要更新它的下一次响铃时间
+        updateAlarmNextTriggerTime(alarm, triggerTime)
+        // 设置下一次的闹铃
+        AlarmManagerUtils.setAlarm(context, alarm, triggerTime)
     }
 }
